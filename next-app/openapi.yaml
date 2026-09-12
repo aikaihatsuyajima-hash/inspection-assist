@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info: {title: Inspection Assist API, version: 1.0.0}
+servers: [{url: https://inspection-assist.example.com}]
+security: [{iapJwt: []}]
+components:
+  securitySchemes: {iapJwt: {type: apiKey, in: header, name: x-goog-iap-jwt-assertion}}
+  schemas:
+    Idempotency: {type: string, minLength: 1, maxLength: 128}
+    Scan: {type: object, required: [idempotencyKey, barcode], properties: {idempotencyKey: {$ref: '#/components/schemas/Idempotency'}, barcode: {type: string, pattern: '^[0-9]+$'}, quantity: {type: integer, minimum: 1, maximum: 100}}}
+paths:
+  /api/v1/warehouses/{warehouseId}/workdays/{date}/containers/{containerNo}/scans:
+    post: {operationId: scan, parameters: [{in: path, name: warehouseId, required: true, schema: {type: string}}, {in: path, name: date, required: true, schema: {type: string}}, {in: path, name: containerNo, required: true, schema: {type: string}}], requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/Scan'}}}}, responses: {'200': {description: Applied}, '409': {description: Idempotency conflict}, '401': {description: Unauthorized}}}
+  /api/v1/warehouses/{warehouseId}/import/preview:
+    post: {operationId: importPreview, responses: {'200': {description: Preview}}}
+  /api/v1/warehouses/{warehouseId}/import/apply:
+    post: {operationId: importApply, responses: {'200': {description: Applied}, '403': {description: Forbidden}}}
+  /api/v1/warehouses/{warehouseId}/import/rollback:
+    post: {operationId: importRollback, responses: {'200': {description: Rolled back}, '403': {description: Forbidden}}}

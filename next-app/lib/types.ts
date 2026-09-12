@@ -1,0 +1,10 @@
+export type Role = "operator" | "manager" | "admin";
+export type ItemStatus = "pending" | "progress" | "done" | "over";
+export type ContainerItem = { id: string; barcode: string; name: string; expected: number; actual: number };
+export type Container = { id: string; customer: string; route: string; pattern: string; items: ContainerItem[]; completed: boolean; revision: number; unknownCount: number; unresolvedDifferenceCount: number };
+export type InspectionState = { containers: Container[]; unknownCount: number; activity: Activity[]; lastSyncedAt?: string };
+export type Activity = { type: "ok" | "error" | "warn"; name: string; detail: string; time: string; eventId?: string };
+export type Principal = { subject: string; email: string; role: Role; warehouseIds: string[] };
+export type ScanCommand = { idempotencyKey: string; barcode: string; quantity?: number; deviceId?: string };
+export type AdjustmentCommand = { idempotencyKey: string; itemId: string; delta: number; deviceId?: string };
+export type ApiResult = { ok: boolean; idempotencyKey: string; message: string; container?: Container; replayed?: boolean; revision?: number };

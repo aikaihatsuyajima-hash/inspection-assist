@@ -1,0 +1,14 @@
+"use client";
+import Link from "next/link";
+import { useMemo } from "react";
+import { containerMetrics } from "../lib/domain";
+import type { Container } from "../lib/types";
+import { useInspection, workDate } from "./InspectionProvider";
+
+export default function OverviewPage() {
+  const { state, totals, message } = useInspection();
+  const customers = useMemo(() => [...new Set(state.containers.map((container) => container.customer))], [state.containers]);
+  return <main className="shell"><section className="heading"><div><small>出荷検品</small><h1>本日の検品概要</h1><p>検品の全体状況と得意先別の進捗を確認できます。</p></div><time>{new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", weekday: "short" }).format(new Date())}</time></section><section className="summary"><Stat label="対象オリコン" value={state.containers.length} unit="箱" /><Stat label="出荷予定" value={totals.expected} unit="点" /><Stat label="検品済み" value={totals.actual} unit="点" /><Stat label="要確認" value={totals.differences} unit="件" /></section><section className="panel"><div className="panel-title"><div><small>DAILY OVERVIEW</small><h2>本日の進捗状況</h2></div><span>{workDate()}（東京）</span></div><div className="overview-progress"><strong>{totals.expected ? Math.round((totals.actual / totals.expected) * 100) : 0}%</strong><span>{totals.actual} / {totals.expected}点</span></div><div className="bar"><i style={{ width: `${totals.expected ? Math.min(100, Math.round((totals.actual / totals.expected) * 100)) : 0}%` }} /></div></section><section className="panel"><div className="panel-title"><div><small>CUSTOMER PROGRESS</small><h2>得意先別の進捗状況</h2></div><span>全{state.containers.length}オリコン</span></div><div className="customers">{customers.map((name) => <Customer key={name} name={name} containers={state.containers.filter((container) => container.customer === name)} />)}</div></section>{message && <div className="toast" role="status">{message}</div>}</main>;
+}
+function Stat({ label, value, unit }: { label: string; value: number; unit: string }) { return <article className="stat"><small>{label}</small><strong>{value}</strong><span>{unit}</span></article>; }
+function Customer({ name, containers }: { name: string; containers: Container[] }) { const expected = containers.reduce((sum, container) => sum + containerMetrics(container).expected, 0); const actual = containers.reduce((sum, container) => sum + containerMetrics(container).credited, 0); const percent = expected ? Math.round(actual / expected * 100) : 0; return <Link className="customer" href={`/inspection?container=${encodeURIComponent(containers[0]?.id ?? "")}`}><strong>{name}</strong><b>{percent}%</b><div className="bar"><i style={{ width: `${percent}%` }} /></div><small>検品 {actual} / {expected}点　完了 {containers.filter((container) => container.completed).length} / {containers.length}箱</small></Link>; }

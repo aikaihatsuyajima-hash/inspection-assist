@@ -1,0 +1,4 @@
+project_id = "replace-me"
+region = "asia-northeast1"
+environment = "stg"
+image = "asia-northeast1-docker.pkg.dev/replace-me/inspection-assist-stg/web:sha256-REPLACE_ME"

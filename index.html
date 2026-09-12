@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#103f3a" />
+    <title>検品アシスト</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="検品アシスト ホーム">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4.5 7.7 7.5 4.2 7.5-4.2M12 12v8.4M8.3 5.1l7.6 4.4"/></svg></span>
+        <span>検品アシスト</span>
+      </a>
+      <nav class="topnav" aria-label="メインメニュー"><a class="active" href="#work">検品作業</a><a href="#customers">得意先進捗</a></nav>
+      <div class="header-meta"><span class="status-dot"></span><span>オンライン</span><span class="divider"></span><strong>田中</strong></div>
+    </header>
+
+    <main class="shell">
+      <section class="page-heading" id="work">
+        <div><p class="eyebrow">出荷検品</p><h1>本日の検品作業</h1><p class="subtitle">オリコンを選択してから、対象商品のバーコードを読み取ります。</p></div>
+        <div class="date-chip" id="todayLabel"></div>
+      </section>
+
+      <section class="summary-grid" aria-label="全体の検品状況">
+        <article class="summary-card"><div class="summary-icon teal"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9ZM4.5 7.7l7.5 4.2 7.5-4.2M12 12v8.4"/></svg></div><div><span>対象オリコン</span><strong id="containerCount">0</strong><small>箱</small></div></article>
+        <article class="summary-card"><div class="summary-icon blue"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h3"/></svg></div><div><span>出荷予定</span><strong id="expectedQty">0</strong><small>点</small></div></article>
+        <article class="summary-card"><div class="summary-icon green"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></div><div><span>検品済み</span><strong id="checkedQty">0</strong><small>点</small></div></article>
+        <article class="summary-card"><div class="summary-icon amber"><svg viewBox="0 0 24 24"><path d="M12 4 3 20h18L12 4Zm0 5v5m0 3v.1"/></svg></div><div><span>要確認</span><strong id="differenceQty">0</strong><small>件</small></div></article>
+      </section>
+
+      <section class="panel customer-panel" id="customers">
+        <div class="panel-heading customer-heading"><div><span class="section-label">CUSTOMER PROGRESS</span><h2>得意先別の進捗状況</h2></div><span class="data-source">検証用PDFデータ・全8オリコン</span></div>
+        <div id="customerProgress" class="customer-progress-grid"></div>
+      </section>
+
+      <section class="workspace-grid">
+        <div class="main-column">
+          <article class="panel scan-panel container-scan-panel">
+            <div class="panel-heading"><div><span class="step">STEP 1</span><h2>オリコンナンバーを読み取る</h2></div><span class="keyboard-hint">Enterで検索</span></div>
+            <form id="containerForm" class="scan-form">
+              <label for="containerInput">オリコンナンバー</label>
+              <div class="input-row"><div class="barcode-input-wrap"><svg viewBox="0 0 24 24"><path d="M4 5v14M7 5v14M11 5v14M14 5v14M16 5v14M20 5v14"/></svg><input id="containerInput" type="text" inputmode="numeric" autocomplete="off" placeholder="オリコンラベルをスキャンまたは入力" autofocus /></div><button class="primary-button" type="submit">対象を表示</button></div>
+              <p class="field-help">検証用：10563560 / 10565288 / 10564568 / 10564280 / 10565365 / 10564462 / 10564208 / 10565081</p>
+            </form>
+            <div id="containerResult" class="scan-result" aria-live="polite"></div>
+          </article>
+
+          <article class="panel scan-panel product-scan-panel" id="productScanPanel">
+            <div class="panel-heading"><div><span class="step">STEP 2</span><h2>商品のバーコードを読み取る</h2></div><span class="selected-container-label" id="selectedContainerLabel">オリコン未選択</span></div>
+            <form id="productForm" class="scan-form">
+              <label for="barcodeInput">商品バーコード</label>
+              <div class="input-row"><div class="barcode-input-wrap"><svg viewBox="0 0 24 24"><path d="M4 5v14M7 5v14M11 5v14M14 5v14M16 5v14M20 5v14"/></svg><input id="barcodeInput" type="text" inputmode="numeric" autocomplete="off" placeholder="先にオリコンを読み取ってください" disabled /></div><button id="productSubmit" class="primary-button" type="submit" disabled>検品する</button></div>
+              <p class="field-help" id="productHint">対象オリコンを選択すると、商品の読み取りを開始できます。</p>
+            </form>
+            <div id="scanResult" class="scan-result" aria-live="polite"></div>
+          </article>
+
+          <article class="panel item-panel">
+            <div class="panel-heading list-heading"><div><span class="step">STEP 3</span><h2>選択中オリコンの明細</h2></div><div class="filter-tabs"><button class="filter-tab active" data-filter="all">すべて</button><button class="filter-tab" data-filter="pending">未完了</button><button class="filter-tab" data-filter="done">完了</button></div></div>
+            <div id="emptySelection" class="empty-selection"><span class="empty-box"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9ZM4.5 7.7l7.5 4.2 7.5-4.2"/></svg></span><strong>オリコンを選択してください</strong><p>選択したオリコンの対象商品だけが表示されます。</p></div>
+            <div class="table-wrap" id="itemTableWrap" hidden><table><thead><tr><th>検証商品</th><th>バーコード</th><th>予定</th><th>実績</th><th>状態</th><th></th></tr></thead><tbody id="itemTableBody"></tbody></table></div>
+          </article>
+        </div>
+
+        <aside class="side-column">
+          <article class="panel active-container-panel"><div class="side-kicker">ACTIVE CONTAINER</div><div id="containerDetails" class="no-container"><span>オリコン未選択</span><p>ラベルを読み取ると詳細を表示します。</p></div></article>
+          <article class="panel progress-panel"><div class="progress-head"><h2>オリコン進捗</h2><strong id="progressPercent">--</strong></div><div class="progress-track"><span id="progressBar"></span></div><p id="progressCaption">対象を選択してください</p><button id="completeButton" class="complete-button" disabled><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>このオリコンを完了する</button><p class="complete-help" id="completeHelp">全商品が適正になると完了できます</p></article>
+          <article class="panel activity-panel"><div class="activity-heading"><h2>直近の読み取り</h2><button id="resetButton">全データをリセット</button></div><ol id="activityList" class="activity-list"></ol></article>
+        </aside>
+      </section>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
