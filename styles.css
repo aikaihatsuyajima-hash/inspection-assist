@@ -59,6 +59,11 @@ h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spa
 .tab-view#workView { height: calc(100vh - 160px); overflow: hidden; }
 .tab-view#workView .workspace-grid { height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 14px; }
 .tab-view#workView .main-column { height: 100%; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto minmax(0, 1fr); gap: 14px; }
+.tab-view#workView .worker-panel { grid-column: 1 / -1; }
+.worker-form { margin: 0 20px; padding: 13px 15px; border-radius: 10px; background: var(--soft); }
+.worker-form label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 750; }
+.worker-form input { min-width: 0; flex: 1; height: 51px; padding: 0 14px; border: 2px solid #bccbc6; border-radius: 8px; outline: none; background: white; font-size: 16px; }
+.worker-form input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(12,101,91,.12); }
 .tab-view#workView .item-panel { grid-column: 1 / -1; }
 .tab-view#workView .side-column { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .tab-view#workView .item-panel { min-height: 0; display: flex; flex-direction: column; }
@@ -93,6 +98,11 @@ h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spa
 .danger-button:hover { background: #a93533; }
 .secondary-button { min-width: 120px; height: 43px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: white; font-weight: 800; }
 .history-delete-panel { max-width: 760px; }
+.history-panel { max-width: 920px; }
+.history-list { margin: 0; padding: 0 24px; list-style: none; }
+.history-item { padding: 14px 0; display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; border-top: 1px solid #edf1ef; }
+.history-item strong { display: block; font-size: 13px; }
+.history-item small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .history-delete-form { margin: 0 24px; padding: 19px; border-radius: 10px; background: var(--soft); }
 .history-delete-form label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 750; }
 .history-delete-form input { min-width: 0; flex: 1; height: 51px; padding: 0 14px; border: 2px solid #bccbc6; border-radius: 8px; outline: none; background: white; font-size: 16px; }
@@ -259,6 +269,7 @@ dd { margin: 0; font-size: 12px; font-weight: 700; text-align: right; }
   .filter-tab { padding: 6px 8px; }
   .side-column { grid-template-columns: 1fr; }
   .tab-view#workView .main-column { grid-template-columns: 1fr; }
+  .tab-view#workView .worker-panel { grid-column: auto; }
   .tab-view#workView .item-panel { grid-column: auto; }
   .activity-panel { grid-column: auto; }
   th, td { padding-left: 12px; padding-right: 12px; }
@@ -269,4 +280,8 @@ dd { margin: 0; font-size: 12px; font-weight: 700; text-align: right; }
   .history-delete-form { margin: 0 16px; padding: 14px; }
   .history-delete-form .input-row { flex-direction: column; }
   .history-delete-form .danger-button { width: 100%; }
+  .worker-form { margin: 0 16px; padding: 14px; }
+  .worker-form .input-row { flex-direction: column; }
+  .worker-form .primary-button { width: 100%; }
+  .history-list { padding: 0 16px; }
 }

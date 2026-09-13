@@ -35,6 +35,7 @@ let toastTimer;
 
 const $ = (selector) => document.querySelector(selector);
 const el = {
+  workerForm: $("#workerForm"), workerInput: $("#workerInput"), workerResult: $("#workerResult"), workerNameHeader: $("#workerNameHeader"),
   containerForm: $("#containerForm"), containerInput: $("#containerInput"), containerResult: $("#containerResult"),
   productForm: $("#productForm"), barcodeInput: $("#barcodeInput"), productSubmit: $("#productSubmit"), productHint: $("#productHint"), scanResult: $("#scanResult"),
   selectedContainerLabel: $("#selectedContainerLabel"), containerDetails: $("#containerDetails"), table: $("#itemTableBody"), tableWrap: $("#itemTableWrap"), emptySelection: $("#emptySelection"),
@@ -47,8 +48,8 @@ const el = {
 
 function cloneSource() { return structuredClone(SOURCE_CONTAINERS); }
 function loadState() {
-  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (saved?.containers?.length === SOURCE_CONTAINERS.length) return { ...saved, unknownCounts: saved.unknownCounts || {} }; } catch (_) {}
-  return { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {} };
+  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (saved?.containers?.length === SOURCE_CONTAINERS.length) return { ...saved, workerName: saved.workerName || "", unknownCounts: saved.unknownCounts || {} }; } catch (_) {}
+  return { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {}, workerName: "" };
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function activeContainer() { return state.containers.find((container) => container.id === activeContainerId); }
@@ -73,7 +74,13 @@ function statusFor(item) {
 }
 
 function render() {
-  renderCustomers(); renderActiveContainer(); renderActivity();
+  renderCustomers(); renderActiveContainer(); renderActivity(); renderHistory();
+  el.workerNameHeader.textContent = state.workerName || "未登録";
+  el.workerInput.value = state.workerName || "";
+  const registered = Boolean(state.workerName);
+  el.containerInput.disabled = !registered;
+  el.containerInput.placeholder = registered ? "オリコンラベルをスキャンまたは入力" : "先に作業者を登録してください";
+  el.containerForm.querySelector("button").disabled = !registered;
 }
 
 function renderCustomers() {
@@ -165,12 +172,21 @@ function renderActivity() {
   if (!state.activity.length) { el.activity.innerHTML = '<li class="empty-activity">まだ読み取り履歴がありません</li>'; return; }
   el.activity.innerHTML = state.activity.slice(0, 3).map((entry) => `<li class="activity-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
+function renderHistory() {
+  const historyList = $("#historyList"); const historyCountLabel = $("#historyCountLabel");
+  if (!historyList) return;
+  if (historyCountLabel) historyCountLabel.textContent = `${state.activity.length}件`;
+  if (!state.activity.length) { historyList.innerHTML = '<li class="empty-activity">まだ検品履歴がありません</li>'; return; }
+  historyList.innerHTML = state.activity.map((entry) => `<li class="history-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
+}
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
 function showToast(message) { clearTimeout(toastTimer); el.toast.textContent = message; el.toast.classList.add("show"); toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600); }
 
-el.containerForm.addEventListener("submit", (event) => { event.preventDefault(); if (!el.containerInput.value.trim()) return showResult(el.containerResult, "warn", "オリコンナンバーを入力してください"); selectContainer(el.containerInput.value); el.containerInput.value = ""; focusProductInput(); });
+el.workerForm.addEventListener("submit", (event) => { event.preventDefault(); const workerName = el.workerInput.value.trim(); if (!workerName) return showResult(el.workerResult, "warn", "作業者名を入力してください"); state.workerName = workerName; saveState(); showResult(el.workerResult, "ok", `${workerName}さんを登録しました`, "オリコンの読み取りを開始できます"); render(); el.containerInput.focus(); });
+el.containerForm.addEventListener("submit", (event) => { event.preventDefault(); if (!state.workerName) return showResult(el.workerResult, "warn", "先に作業者を登録してください"); if (!el.containerInput.value.trim()) return showResult(el.containerResult, "warn", "オリコンナンバーを入力してください"); selectContainer(el.containerInput.value); el.containerInput.value = ""; focusProductInput(); });
 el.productForm.addEventListener("submit", (event) => { event.preventDefault(); scanProduct(el.barcodeInput.value); el.barcodeInput.value = ""; el.barcodeInput.focus(); });
 el.containerInput.addEventListener("input", () => {
+  if (!state.workerName) return;
   const value = el.containerInput.value.trim();
   if (value.length === 8 && state.containers.some((container) => container.id === value)) {
     selectContainer(value);
@@ -195,7 +211,7 @@ el.barcodeInput.addEventListener("keydown", (event) => {
 document.querySelectorAll(".filter-tab").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll(".filter-tab").forEach((tab) => tab.classList.remove("active")); button.classList.add("active"); currentFilter = button.dataset.filter; if (activeContainer()) renderTable(activeContainer()); }));
 el.completeButton.addEventListener("click", () => { const container = activeContainer(); if (!container) return; container.completed = true; addActivity("ok", `オリコン ${container.id}`, "検品完了"); saveState(); render(); showToast(`オリコン ${container.id} の検品を完了しました`); el.containerInput.focus(); });
 el.resolveOverageButton.addEventListener("click", () => { const container = activeContainer(); if (!container || container.completed || !container.items.some((item) => item.actual > item.expected)) return; if (!window.confirm("過剰になっている商品を予定数まで戻しますか？")) return; const overageItems = container.items.filter((item) => item.actual > item.expected); overageItems.forEach((item) => { item.actual = item.expected; }); addActivity("ok", `オリコン ${container.id}`, `過剰分を解除（${overageItems.length}品番）`); saveState(); render(); showToast(`オリコン ${container.id} の過剰分を解除しました`); });
-el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {} }; activeContainerId = null; lastScannedItemId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
+el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {}, workerName: "" }; activeContainerId = null; lastScannedItemId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; el.workerResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
 
 function closeHistoryDeleteModal() { el.historyDeleteModal.hidden = true; }
 function openHistoryDeleteModal(container) {
@@ -237,15 +253,15 @@ function showView(viewId, updateHash = false) {
     link.classList.toggle("active", active);
     if (active) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
   });
-  if (updateHash) history.pushState(null, "", requestedView === "customersView" ? "#customers" : requestedView === "historyDeleteView" ? "#history-delete" : "#work");
+  if (updateHash) history.pushState(null, "", requestedView === "customersView" ? "#customers" : requestedView === "historyDeleteView" ? "#history-delete" : requestedView === "historyView" ? "#history" : "#work");
 }
 
 document.querySelectorAll(".topnav a[data-view]").forEach((link) => link.addEventListener("click", (event) => {
   event.preventDefault();
   showView(link.dataset.view, true);
 }));
-window.addEventListener("popstate", () => showView(location.hash === "#customers" ? "customersView" : location.hash === "#history-delete" ? "historyDeleteView" : "workView"));
+window.addEventListener("popstate", () => showView(location.hash === "#customers" ? "customersView" : location.hash === "#history-delete" ? "historyDeleteView" : location.hash === "#history" ? "historyView" : "workView"));
 window.addEventListener("keydown", (event) => { if (event.key === "Escape" && !el.historyDeleteModal.hidden) closeHistoryDeleteModal(); });
-const viewFromHash = location.hash === "#customers" ? "customersView" : location.hash === "#history-delete" ? "historyDeleteView" : "workView";
+const viewFromHash = location.hash === "#customers" ? "customersView" : location.hash === "#history-delete" ? "historyDeleteView" : location.hash === "#history" ? "historyView" : "workView";
 showView(viewFromHash);
 render();

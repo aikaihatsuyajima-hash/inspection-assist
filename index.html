@@ -13,16 +13,25 @@
         <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4.5 7.7 7.5 4.2 7.5-4.2M12 12v8.4M8.3 5.1l7.6 4.4"/></svg></span>
         <span>検品アシスト</span>
       </a>
-      <nav class="topnav" aria-label="メインメニュー"><a href="#customers" data-view="customersView">得意先進捗</a><a class="active" href="#work" data-view="workView" aria-current="page">検品作業</a><a href="#history-delete" data-view="historyDeleteView">削除</a></nav>
-      <div class="header-meta"><span class="status-dot"></span><span>オンライン</span><span class="divider"></span><strong>田中</strong></div>
+      <nav class="topnav" aria-label="メインメニュー"><a href="#customers" data-view="customersView">得意先進捗</a><a class="active" href="#work" data-view="workView" aria-current="page">検品作業</a><a href="#history-delete" data-view="historyDeleteView">削除</a><a href="#history" data-view="historyView">履歴</a></nav>
+      <div class="header-meta"><span class="status-dot"></span><span>オンライン</span><span class="divider"></span><strong id="workerNameHeader">未登録</strong></div>
     </header>
 
     <main class="shell">
       <div id="workView" class="tab-view">
       <section class="workspace-grid">
         <div class="main-column">
+          <article class="panel worker-panel">
+            <div class="panel-heading"><div><span class="step">STEP 1-1</span><h2>作業者登録</h2></div><span class="keyboard-hint">検品前に登録</span></div>
+            <form id="workerForm" class="worker-form">
+              <label for="workerInput">作業者名</label>
+              <div class="input-row"><input id="workerInput" type="text" autocomplete="name" placeholder="作業者名を入力" required /><button class="primary-button" type="submit">登録する</button></div>
+              <p class="field-help">登録した作業者名はこの端末の検品履歴に使用します。</p>
+            </form>
+            <div id="workerResult" class="scan-result" aria-live="polite"></div>
+          </article>
           <article class="panel scan-panel container-scan-panel">
-            <div class="panel-heading"><div><span class="step">STEP 1</span><h2>オリコンナンバーを読み取る</h2></div><span class="keyboard-hint">Enterで検索</span></div>
+            <div class="panel-heading"><div><span class="step">STEP 1-2</span><h2>オリコンナンバーを読み取る</h2></div><span class="keyboard-hint">Enterで検索</span></div>
             <form id="containerForm" class="scan-form">
               <label for="containerInput">オリコンナンバー</label>
               <div class="input-row"><div class="barcode-input-wrap"><svg viewBox="0 0 24 24"><path d="M4 5v14M7 5v14M11 5v14M14 5v14M16 5v14M20 5v14"/></svg><input id="containerInput" type="text" inputmode="numeric" autocomplete="off" placeholder="オリコンラベルをスキャンまたは入力" autofocus /></div><button class="primary-button" type="submit">対象を表示</button></div>
@@ -83,6 +92,16 @@
             <p class="field-help">対象オリコンの検品実績・完了状態・読み取り履歴だけを削除します。</p>
           </form>
           <div id="historyDeleteResult" class="scan-result" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <div id="historyView" class="tab-view" hidden>
+        <section class="page-heading">
+          <div><p class="eyebrow">検品記録</p><h1>検品履歴</h1><p class="subtitle">スキャンした商品・オリコン・操作の履歴を確認できます。</p></div>
+        </section>
+        <section class="panel history-panel">
+          <div class="panel-heading customer-heading"><div><span class="section-label">INSPECTION HISTORY</span><h2>スキャンした一覧</h2></div><span class="data-source" id="historyCountLabel"></span></div>
+          <ol id="historyList" class="history-list"></ol>
         </section>
       </div>
     </main>
