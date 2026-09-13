@@ -40,7 +40,7 @@ const el = {
   productForm: $("#productForm"), barcodeInput: $("#barcodeInput"), productSubmit: $("#productSubmit"), productHint: $("#productHint"), scanResult: $("#scanResult"),
   selectedContainerLabel: $("#selectedContainerLabel"), containerDetails: $("#containerDetails"), table: $("#itemTableBody"), tableWrap: $("#itemTableWrap"), emptySelection: $("#emptySelection"),
   customerProgress: $("#customerProgressOverview"),
-  historyDeleteForm: $("#historyDeleteForm"), historyDeleteInput: $("#historyDeleteInput"), historyDeleteResult: $("#historyDeleteResult"), historyDeleteModal: $("#historyDeleteModal"), historyDeleteModalText: $("#historyDeleteModalText"), historyDeleteCancel: $("#historyDeleteCancel"), historyDeleteConfirm: $("#historyDeleteConfirm"),
+  historyDeleteForm: $("#historyDeleteForm"), historyDeleteInput: $("#historyDeleteInput"), historyDeleteResult: $("#historyDeleteResult"), historyDeleteModal: $("#historyDeleteModal"), historyDeleteModalText: $("#historyDeleteModalText"), historyDeleteCancel: $("#historyDeleteCancel"), historyDeleteConfirm: $("#historyDeleteConfirm"), historyDownloadButton: $("#historyDownloadButton"),
   overallProgressPercent: $("#overallProgressPercent"), overallProgressBar: $("#overallProgressBar"), overallProgressCaption: $("#overallProgressCaption"), overallContainerCount: $("#overallContainerCount"), overallCompletedCount: $("#overallCompletedCount"), overallDifferenceCount: $("#overallDifferenceCount"),
   progressPercent: $("#progressPercent"), progressBar: $("#progressBar"), progressCaption: $("#progressCaption"), completeButton: $("#completeButton"), resolveOverageButton: $("#resolveOverageButton"), completeHelp: $("#completeHelp"),
   activity: $("#activityList"), resetButton: $("#resetButton"), toast: $("#toast")
@@ -180,6 +180,16 @@ function renderHistory() {
   if (!state.activity.length) { historyList.innerHTML = '<li class="empty-activity">まだ検品履歴がありません</li>'; return; }
   historyList.innerHTML = state.activity.map((entry) => `<li class="history-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>作業者：${entry.workerName || state.workerName || "未登録"}　${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
+function escapeXml(value) { return String(value ?? "").replace(/[<>&'\"]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '\"': "&quot;" }[character])); }
+function downloadHistoryExcel() {
+  const rows = [["日時", "作業者", "区分", "対象", "詳細"]];
+  state.activity.forEach((entry) => rows.push([entry.time, entry.workerName || state.workerName || "未登録", entry.type === "error" ? "エラー" : "完了", entry.name, entry.detail]));
+  const xmlRows = rows.map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${escapeXml(cell)}</Data></Cell>`).join("")}</Row>`).join("");
+  const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="検品履歴"><Table>${xmlRows}</Table></Worksheet></Workbook>`;
+  const blob = new Blob(["\ufeff", xml], { type: "application/vnd.ms-excel" });
+  const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `検品履歴_${new Date().toISOString().slice(0, 10)}.xls`; link.click(); URL.revokeObjectURL(link.href);
+  showToast(`${state.activity.length}件の履歴をExcel出力しました`);
+}
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
 function showToast(message) { clearTimeout(toastTimer); el.toast.textContent = message; el.toast.classList.add("show"); toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600); }
 
@@ -212,6 +222,7 @@ el.barcodeInput.addEventListener("keydown", (event) => {
 document.querySelectorAll(".filter-tab").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll(".filter-tab").forEach((tab) => tab.classList.remove("active")); button.classList.add("active"); currentFilter = button.dataset.filter; if (activeContainer()) renderTable(activeContainer()); }));
 el.completeButton.addEventListener("click", () => { const container = activeContainer(); if (!container) return; container.completed = true; addActivity("ok", `オリコン ${container.id}`, "検品完了"); saveState(); render(); showToast(`オリコン ${container.id} の検品を完了しました`); el.containerInput.focus(); });
 el.resolveOverageButton.addEventListener("click", () => { const container = activeContainer(); if (!container || container.completed || !container.items.some((item) => item.actual > item.expected)) return; if (!window.confirm("過剰になっている商品を予定数まで戻しますか？")) return; const overageItems = container.items.filter((item) => item.actual > item.expected); overageItems.forEach((item) => { item.actual = item.expected; }); addActivity("ok", `オリコン ${container.id}`, `過剰分を解除（${overageItems.length}品番）`); saveState(); render(); showToast(`オリコン ${container.id} の過剰分を解除しました`); });
+el.historyDownloadButton.addEventListener("click", downloadHistoryExcel);
 el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {}, workerName: "" }; activeContainerId = null; lastScannedItemId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; el.workerResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
 
 function closeHistoryDeleteModal() { el.historyDeleteModal.hidden = true; }
