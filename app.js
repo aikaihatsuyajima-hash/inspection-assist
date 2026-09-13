@@ -187,7 +187,7 @@ function downloadHistoryExcel() {
   const xmlRows = rows.map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${escapeXml(cell)}</Data></Cell>`).join("")}</Row>`).join("");
   const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="検品履歴"><Table>${xmlRows}</Table></Worksheet></Workbook>`;
   const blob = new Blob(["\ufeff", xml], { type: "application/vnd.ms-excel" });
-  const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `検品履歴_${new Date().toISOString().slice(0, 10)}.xls`; link.click(); URL.revokeObjectURL(link.href);
+  const downloadUrl = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = downloadUrl; link.download = `検品履歴_${new Date().toISOString().slice(0, 10)}.xls`; link.style.display = "none"; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   showToast(`${state.activity.length}件の履歴をExcel出力しました`);
 }
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
