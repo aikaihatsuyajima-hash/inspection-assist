@@ -181,13 +181,32 @@ function renderHistory() {
   historyList.innerHTML = state.activity.map((entry) => `<li class="history-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>作業者：${entry.workerName || state.workerName || "未登録"}　${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
 function escapeXml(value) { return String(value ?? "").replace(/[<>&'\"]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '\"': "&quot;" }[character])); }
+function crc32(bytes) { let crc = 0xffffffff; for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0; }
+function pushU16(target, value) { target.push(value & 255, (value >>> 8) & 255); }
+function pushU32(target, value) { target.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255); }
+function makeZip(entries) {
+  const encoder = new TextEncoder(); const output = []; const central = []; let offset = 0;
+  entries.forEach(({ name, content }) => {
+    const nameBytes = encoder.encode(name); const data = encoder.encode(content); const crc = crc32(data); const localOffset = offset;
+    const header = []; pushU32(header, 0x04034b50); pushU16(header, 20); pushU16(header, 0x800); pushU16(header, 0); pushU16(header, 0); pushU16(header, 0); pushU32(header, crc); pushU32(header, data.length); pushU32(header, data.length); pushU16(header, nameBytes.length); pushU16(header, 0);
+    output.push(...header, ...nameBytes, ...data); offset += header.length + nameBytes.length + data.length;
+    const directory = []; pushU32(directory, 0x02014b50); pushU16(directory, 20); pushU16(directory, 20); pushU16(directory, 0x800); pushU16(directory, 0); pushU16(directory, 0); pushU16(directory, 0); pushU32(directory, crc); pushU32(directory, data.length); pushU32(directory, data.length); pushU16(directory, nameBytes.length); pushU16(directory, 0); pushU16(directory, 0); pushU16(directory, 0); pushU16(directory, 0); pushU32(directory, 0); pushU32(directory, localOffset); central.push(...directory, ...nameBytes);
+  });
+  const centralOffset = offset; const centralBytes = central.length; output.push(...central); const end = []; pushU32(end, 0x06054b50); pushU16(end, 0); pushU16(end, 0); pushU16(end, entries.length); pushU16(end, entries.length); pushU32(end, centralBytes); pushU32(end, centralOffset); pushU16(end, 0); output.push(...end); return new Uint8Array(output);
+}
 function downloadHistoryExcel() {
   const rows = [["日時", "作業者", "区分", "対象", "詳細"]];
   state.activity.forEach((entry) => rows.push([entry.time, entry.workerName || state.workerName || "未登録", entry.type === "error" ? "エラー" : "完了", entry.name, entry.detail]));
-  const xmlRows = rows.map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${escapeXml(cell)}</Data></Cell>`).join("")}</Row>`).join("");
-  const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="検品履歴"><Table>${xmlRows}</Table></Worksheet></Workbook>`;
-  const blob = new Blob(["\ufeff", xml], { type: "application/vnd.ms-excel" });
-  const downloadUrl = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = downloadUrl; link.download = `検品履歴_${new Date().toISOString().slice(0, 10)}.xls`; link.style.display = "none"; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  const columnName = (number) => { let name = ""; for (let value = number + 1; value; value = Math.floor((value - 1) / 26)) name = String.fromCharCode(65 + ((value - 1) % 26)) + name; return name; };
+  const worksheetRows = rows.map((row, rowIndex) => `<row r="${rowIndex + 1}">${row.map((cell, columnIndex) => `<c r="${columnName(columnIndex)}${rowIndex + 1}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(cell)}</t></is></c>`).join("")}</row>`).join("");
+  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${worksheetRows}</sheetData></worksheet>`;
+  const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="検品履歴" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+  const xlsxBytes = makeZip([{ name: "[Content_Types].xml", content: contentTypes }, { name: "_rels/.rels", content: rels }, { name: "xl/workbook.xml", content: workbook }, { name: "xl/_rels/workbook.xml.rels", content: workbookRels }, { name: "xl/worksheets/sheet1.xml", content: worksheet }]);
+  const blob = new Blob([xlsxBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const downloadUrl = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = downloadUrl; link.download = `検品履歴_${new Date().toISOString().slice(0, 10)}.xlsx`; link.style.display = "none"; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   showToast(`${state.activity.length}件の履歴をExcel出力しました`);
 }
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
