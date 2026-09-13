@@ -99,8 +99,9 @@ h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spa
 .danger-button:hover { background: #a93533; }
 .secondary-button { min-width: 120px; height: 43px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: white; font-weight: 800; }
 .history-delete-panel { max-width: 760px; }
-.history-panel { max-width: 920px; }
-.history-list { margin: 0; padding: 0 24px; list-style: none; }
+.history-panel { max-width: 920px; max-height: calc(100vh - 240px); display: flex; flex-direction: column; }
+.history-meta { display: flex; align-items: center; gap: 18px; }
+.history-list { min-height: 0; margin: 0; padding: 0 24px; overflow: auto; list-style: none; }
 .history-item { padding: 14px 0; display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; border-top: 1px solid #edf1ef; }
 .history-item strong { display: block; font-size: 13px; }
 .history-item small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
@@ -285,4 +286,6 @@ dd { margin: 0; font-size: 12px; font-weight: 700; text-align: right; }
   .worker-form .input-row { flex-direction: column; }
   .worker-form .primary-button { width: 100%; }
   .history-list { padding: 0 16px; }
+  .history-panel { max-height: none; }
+  .history-meta { gap: 8px; }
 }

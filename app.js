@@ -167,15 +167,16 @@ function scanProduct(rawBarcode) {
   saveState(); render();
 }
 
-function addActivity(type, name, detail) { state.activity.unshift({ type, name, detail, time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) }); state.activity = state.activity.slice(0, 30); }
+function addActivity(type, name, detail) { state.activity.unshift({ type, name, detail, time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }), workerName: state.workerName || "未登録" }); }
 function renderActivity() {
   if (!state.activity.length) { el.activity.innerHTML = '<li class="empty-activity">まだ読み取り履歴がありません</li>'; return; }
   el.activity.innerHTML = state.activity.slice(0, 3).map((entry) => `<li class="activity-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
 function renderHistory() {
-  const historyList = $("#historyList"); const historyCountLabel = $("#historyCountLabel");
+  const historyList = $("#historyList"); const historyCountLabel = $("#historyCountLabel"); const historyWorkerLabel = $("#historyWorkerLabel");
   if (!historyList) return;
   if (historyCountLabel) historyCountLabel.textContent = `${state.activity.length}件`;
+  if (historyWorkerLabel) historyWorkerLabel.textContent = `作業者：${state.workerName || "未登録"}`;
   if (!state.activity.length) { historyList.innerHTML = '<li class="empty-activity">まだ検品履歴がありません</li>'; return; }
   historyList.innerHTML = state.activity.map((entry) => `<li class="history-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
