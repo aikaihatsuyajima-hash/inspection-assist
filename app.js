@@ -25,9 +25,11 @@ const SOURCE_CONTAINERS = CONTAINER_DATA.map((container, containerIndex) => ({
   completed: false
 }));
 
-const STORAGE_KEY = "inspection-assist-state-v5";
+// 旧版の検品済み状態を新しい検証データへ引き継がないよう、データ形式を更新する。
+const STORAGE_KEY = "inspection-assist-state-v6";
 let state = loadState();
 let activeContainerId = null;
+let lastScannedItemId = null;
 let currentFilter = "all";
 let toastTimer;
 
@@ -36,18 +38,23 @@ const el = {
   containerForm: $("#containerForm"), containerInput: $("#containerInput"), containerResult: $("#containerResult"),
   productForm: $("#productForm"), barcodeInput: $("#barcodeInput"), productSubmit: $("#productSubmit"), productHint: $("#productHint"), scanResult: $("#scanResult"),
   selectedContainerLabel: $("#selectedContainerLabel"), containerDetails: $("#containerDetails"), table: $("#itemTableBody"), tableWrap: $("#itemTableWrap"), emptySelection: $("#emptySelection"),
-  customerProgress: $("#customerProgress"), containerCount: $("#containerCount"), expectedQty: $("#expectedQty"), checkedQty: $("#checkedQty"), differenceQty: $("#differenceQty"),
+  customerProgress: $("#customerProgressOverview"),
+  historyDeleteForm: $("#historyDeleteForm"), historyDeleteInput: $("#historyDeleteInput"), historyDeleteResult: $("#historyDeleteResult"), historyDeleteModal: $("#historyDeleteModal"), historyDeleteModalText: $("#historyDeleteModalText"), historyDeleteCancel: $("#historyDeleteCancel"), historyDeleteConfirm: $("#historyDeleteConfirm"),
+  overallProgressPercent: $("#overallProgressPercent"), overallProgressBar: $("#overallProgressBar"), overallProgressCaption: $("#overallProgressCaption"), overallContainerCount: $("#overallContainerCount"), overallCompletedCount: $("#overallCompletedCount"), overallDifferenceCount: $("#overallDifferenceCount"),
   progressPercent: $("#progressPercent"), progressBar: $("#progressBar"), progressCaption: $("#progressCaption"), completeButton: $("#completeButton"), completeHelp: $("#completeHelp"),
   activity: $("#activityList"), resetButton: $("#resetButton"), toast: $("#toast")
 };
 
 function cloneSource() { return structuredClone(SOURCE_CONTAINERS); }
 function loadState() {
-  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (saved?.containers?.length === SOURCE_CONTAINERS.length) return saved; } catch (_) {}
-  return { containers: cloneSource(), activity: [], unknownCount: 0 };
+  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (saved?.containers?.length === SOURCE_CONTAINERS.length) return { ...saved, unknownCounts: saved.unknownCounts || {} }; } catch (_) {}
+  return { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {} };
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function activeContainer() { return state.containers.find((container) => container.id === activeContainerId); }
+function focusProductInput() {
+  if (!el.barcodeInput.disabled) requestAnimationFrame(() => el.barcodeInput.focus());
+}
 function containerMetrics(container) {
   const expected = container.items.reduce((sum, item) => sum + item.expected, 0);
   const actual = container.items.reduce((sum, item) => sum + item.actual, 0);
@@ -66,15 +73,19 @@ function statusFor(item) {
 }
 
 function render() {
-  const totals = allMetrics();
-  el.containerCount.textContent = state.containers.length;
-  el.expectedQty.textContent = totals.expected;
-  el.checkedQty.textContent = totals.actual;
-  el.differenceQty.textContent = totals.differences;
   renderCustomers(); renderActiveContainer(); renderActivity();
 }
 
 function renderCustomers() {
+  const totals = allMetrics();
+  const credited = state.containers.reduce((sum, container) => sum + containerMetrics(container).credited, 0);
+  const overallPercent = totals.expected ? Math.round(credited / totals.expected * 100) : 0;
+  if (el.overallProgressPercent) el.overallProgressPercent.textContent = `${overallPercent}%`;
+  if (el.overallProgressBar) el.overallProgressBar.style.width = `${overallPercent}%`;
+  if (el.overallProgressCaption) el.overallProgressCaption.textContent = `${credited} / ${totals.expected}点を検品済み`;
+  if (el.overallContainerCount) el.overallContainerCount.textContent = state.containers.length;
+  if (el.overallCompletedCount) el.overallCompletedCount.textContent = state.containers.filter((container) => container.completed).length;
+  if (el.overallDifferenceCount) el.overallDifferenceCount.textContent = totals.differences;
   const names = [...new Set(state.containers.map((container) => container.customer))];
   el.customerProgress.innerHTML = names.map((name) => {
     const containers = state.containers.filter((container) => container.customer === name);
@@ -118,24 +129,29 @@ function renderActiveContainer() {
 
 function renderTable(container) {
   const items = container.items.filter((item) => { const status = statusFor(item).key; return currentFilter === "pending" ? status !== "done" : currentFilter === "done" ? status === "done" : true; });
-  el.table.innerHTML = items.map((item) => { const status = statusFor(item); return `<tr><td class="product-cell"><span class="product-name">${item.name}</span><span class="product-code">${item.id}</span></td><td><span class="barcode-text">${item.barcode}</span></td><td class="count-cell">${item.expected}</td><td class="count-cell"><strong>${item.actual}</strong></td><td><span class="status-badge ${status.key}">${status.label}</span></td><td><div class="adjust-controls"><button class="adjust-button" data-action="minus" data-id="${item.id}" aria-label="${item.name}を1点減らす">−</button><button class="adjust-button" data-action="plus" data-id="${item.id}" aria-label="${item.name}を1点増やす">＋</button></div></td></tr>`; }).join("") || '<tr><td colspan="6" class="no-rows">該当する商品はありません</td></tr>';
+  const fallbackItem = currentFilter === "done" ? null : container.items.find((item) => item.actual < item.expected) ?? container.items.find((item) => item.actual > item.expected);
+  const currentItem = items.find((item) => item.id === lastScannedItemId) ?? fallbackItem;
+  el.table.innerHTML = items.map((item) => { const status = statusFor(item); const isCurrent = item.id === currentItem?.id; return `<tr data-item-id="${item.id}" class="${isCurrent ? "current-item" : ""}"${isCurrent ? ' aria-current="true"' : ""}><td class="product-cell"><span class="product-name">${item.name}${isCurrent ? '<span class="current-item-label">現在の検品対象</span>' : ""}</span><span class="product-code">${item.id}</span></td><td><span class="barcode-text">${item.barcode}</span></td><td class="count-cell">${item.expected}</td><td class="count-cell"><strong>${item.actual}</strong></td><td><span class="status-badge ${status.key}">${status.label}</span></td></tr>`; }).join("") || '<tr><td colspan="5" class="no-rows">該当する商品はありません</td></tr>';
+  if (currentItem && currentFilter !== "done") requestAnimationFrame(() => el.table.querySelector(`[data-item-id="${currentItem.id}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" }));
 }
 
 function selectContainer(id) {
   const container = state.containers.find((candidate) => candidate.id === id.trim());
   if (!container) { showResult(el.containerResult, "error", "登録されていないオリコンです", id.trim()); addActivity("error", "オリコン不明", id.trim()); saveState(); render(); return; }
   activeContainerId = container.id;
+  lastScannedItemId = null;
   showResult(el.containerResult, "ok", `${container.customer} の対象データを表示しました`, `${container.items.length}品番 / ${containerMetrics(container).expected}点`);
   el.scanResult.innerHTML = ""; render();
-  if (!container.completed) el.barcodeInput.focus();
+  if (!container.completed) focusProductInput();
 }
 
 function scanProduct(rawBarcode) {
   const container = activeContainer(); const barcode = rawBarcode.trim();
   if (!container || !barcode) return;
   const item = container.items.find((candidate) => candidate.barcode === barcode);
-  if (!item) { state.unknownCount = (state.unknownCount || 0) + 1; addActivity("error", "品違いを検知", `${barcode} / ORI ${container.id}`); showResult(el.scanResult, "error", "このオリコンの対象外商品です", barcode); saveState(); render(); return; }
+  if (!item) { state.unknownCount = (state.unknownCount || 0) + 1; state.unknownCounts = state.unknownCounts || {}; state.unknownCounts[container.id] = (state.unknownCounts[container.id] || 0) + 1; addActivity("error", "品違いを検知", `${barcode} / ORI ${container.id}`); showResult(el.scanResult, "error", "このオリコンの対象外商品です", barcode); saveState(); render(); return; }
   item.actual += 1;
+  lastScannedItemId = item.id;
   const over = item.actual > item.expected;
   addActivity(over ? "error" : "ok", item.name, `${item.actual} / ${item.expected}点・ORI ${container.id}`);
   showResult(el.scanResult, over ? "error" : "ok", over ? "予定数を超過しています" : `${item.name} を登録しました`, `${item.actual} / ${item.expected}点`);
@@ -145,17 +161,88 @@ function scanProduct(rawBarcode) {
 function addActivity(type, name, detail) { state.activity.unshift({ type, name, detail, time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) }); state.activity = state.activity.slice(0, 30); }
 function renderActivity() {
   if (!state.activity.length) { el.activity.innerHTML = '<li class="empty-activity">まだ読み取り履歴がありません</li>'; return; }
-  el.activity.innerHTML = state.activity.slice(0, 6).map((entry) => `<li class="activity-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
+  el.activity.innerHTML = state.activity.slice(0, 3).map((entry) => `<li class="activity-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
 function showToast(message) { clearTimeout(toastTimer); el.toast.textContent = message; el.toast.classList.add("show"); toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600); }
 
-el.containerForm.addEventListener("submit", (event) => { event.preventDefault(); if (!el.containerInput.value.trim()) return showResult(el.containerResult, "warn", "オリコンナンバーを入力してください"); selectContainer(el.containerInput.value); el.containerInput.value = ""; });
+el.containerForm.addEventListener("submit", (event) => { event.preventDefault(); if (!el.containerInput.value.trim()) return showResult(el.containerResult, "warn", "オリコンナンバーを入力してください"); selectContainer(el.containerInput.value); el.containerInput.value = ""; focusProductInput(); });
 el.productForm.addEventListener("submit", (event) => { event.preventDefault(); scanProduct(el.barcodeInput.value); el.barcodeInput.value = ""; el.barcodeInput.focus(); });
-el.table.addEventListener("click", (event) => { const button = event.target.closest(".adjust-button"); const container = activeContainer(); if (!button || !container || container.completed) return; const item = container.items.find((candidate) => candidate.id === button.dataset.id); item.actual = Math.max(0, item.actual + (button.dataset.action === "plus" ? 1 : -1)); addActivity("ok", item.name, `手動修正 ${item.actual} / ${item.expected}点`); saveState(); render(); });
+el.containerInput.addEventListener("input", () => {
+  const value = el.containerInput.value.trim();
+  if (value.length === 8 && state.containers.some((container) => container.id === value)) {
+    selectContainer(value);
+    el.containerInput.value = "";
+    focusProductInput();
+  }
+});
+el.barcodeInput.addEventListener("input", () => {
+  const value = el.barcodeInput.value.trim();
+  if (/^\d{13}$/.test(value)) {
+    scanProduct(value);
+    el.barcodeInput.value = "";
+    focusProductInput();
+  }
+});
+el.barcodeInput.addEventListener("keydown", (event) => {
+  if (event.key === "Tab" && activeContainer() && !activeContainer().completed) {
+    event.preventDefault();
+    focusProductInput();
+  }
+});
 document.querySelectorAll(".filter-tab").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll(".filter-tab").forEach((tab) => tab.classList.remove("active")); button.classList.add("active"); currentFilter = button.dataset.filter; if (activeContainer()) renderTable(activeContainer()); }));
 el.completeButton.addEventListener("click", () => { const container = activeContainer(); if (!container) return; container.completed = true; addActivity("ok", `オリコン ${container.id}`, "検品完了"); saveState(); render(); showToast(`オリコン ${container.id} の検品を完了しました`); el.containerInput.focus(); });
-el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0 }; activeContainerId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
+el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {} }; activeContainerId = null; lastScannedItemId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
 
-$("#todayLabel").textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" }).format(new Date());
+function closeHistoryDeleteModal() { el.historyDeleteModal.hidden = true; }
+function openHistoryDeleteModal(container) {
+  el.historyDeleteModalText.textContent = `オリコン ${container.id} の検品実績・完了状態・読み取り履歴を削除します。この操作は元に戻せません。`;
+  el.historyDeleteModal.hidden = false;
+  el.historyDeleteConfirm.focus();
+}
+el.historyDeleteForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const id = el.historyDeleteInput.value.trim();
+  const container = state.containers.find((candidate) => candidate.id === id);
+  if (!container) return showResult(el.historyDeleteResult, "error", "登録されていないオリコンです", id || "番号未入力");
+  showResult(el.historyDeleteResult, "warn", `オリコン ${container.id} を削除対象にしました`, "確認画面で確定してください");
+  openHistoryDeleteModal(container);
+});
+el.historyDeleteCancel.addEventListener("click", closeHistoryDeleteModal);
+el.historyDeleteModal.addEventListener("click", (event) => { if (event.target === el.historyDeleteModal) closeHistoryDeleteModal(); });
+el.historyDeleteConfirm.addEventListener("click", () => {
+  const id = el.historyDeleteInput.value.trim();
+  const container = state.containers.find((candidate) => candidate.id === id);
+  if (!container) return closeHistoryDeleteModal();
+  container.items.forEach((item) => { item.actual = 0; });
+  container.completed = false;
+  state.activity = state.activity.filter((entry) => !entry.detail.includes(`ORI ${container.id}`) && entry.name !== `オリコン ${container.id}`);
+  const removedUnknowns = state.unknownCounts?.[container.id] || 0;
+  state.unknownCount = Math.max(0, (state.unknownCount || 0) - removedUnknowns);
+  if (state.unknownCounts) delete state.unknownCounts[container.id];
+  if (activeContainerId === container.id) { lastScannedItemId = null; el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; }
+  saveState(); render(); closeHistoryDeleteModal(); el.historyDeleteInput.value = ""; showResult(el.historyDeleteResult, "ok", `オリコン ${container.id} の検品履歴を削除しました`, "検品前の状態に戻しました"); showToast(`オリコン ${container.id} の履歴を削除しました`);
+});
+
+$("#customersTodayLabel").textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" }).format(new Date());
+
+function showView(viewId, updateHash = false) {
+  const requestedView = document.getElementById(viewId) ? viewId : "workView";
+  document.querySelectorAll(".tab-view").forEach((view) => { view.hidden = view.id !== requestedView; });
+  document.querySelectorAll(".topnav a[data-view]").forEach((link) => {
+    const active = link.dataset.view === requestedView;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
+  });
+  if (updateHash) history.pushState(null, "", requestedView === "customersView" ? "#customers" : requestedView === "historyDeleteView" ? "#history-delete" : "#work");
+}
+
+document.querySelectorAll(".topnav a[data-view]").forEach((link) => link.addEventListener("click", (event) => {
+  event.preventDefault();
+  showView(link.dataset.view, true);
+}));
+window.addEventListener("popstate", () => showView(location.hash === "#customers" ? "customersView" : location.hash === "#history-delete" ? "historyDeleteView" : "workView"));
+window.addEventListener("keydown", (event) => { if (event.key === "Escape" && !el.historyDeleteModal.hidden) closeHistoryDeleteModal(); });
+const viewFromHash = location.hash === "#customers" ? "customersView" : location.hash === "#history-delete" ? "historyDeleteView" : "workView";
+showView(viewFromHash);
 render();
