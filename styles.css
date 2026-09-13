@@ -102,9 +102,10 @@ h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spa
 .history-panel { max-width: 920px; max-height: calc(100vh - 240px); display: flex; flex-direction: column; }
 .history-meta { display: flex; align-items: center; gap: 18px; }
 .history-list { min-height: 0; margin: 0; padding: 0 24px; overflow: auto; list-style: none; }
-.history-item { padding: 14px 0; display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; border-top: 1px solid #edf1ef; }
-.history-item strong { display: block; font-size: 13px; }
-.history-item small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+.history-item { padding: 8px 0; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; border-top: 1px solid #edf1ef; }
+.history-item > span:nth-child(2) { min-width: 0; display: flex; align-items: baseline; gap: 12px; }
+.history-item strong { flex: 0 0 auto; font-size: 13px; white-space: nowrap; }
+.history-item small { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .history-delete-form { margin: 0 24px; padding: 19px; border-radius: 10px; background: var(--soft); }
 .history-delete-form label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 750; }
 .history-delete-form input { min-width: 0; flex: 1; height: 51px; padding: 0 14px; border: 2px solid #bccbc6; border-radius: 8px; outline: none; background: white; font-size: 16px; }
@@ -288,4 +289,5 @@ dd { margin: 0; font-size: 12px; font-weight: 700; text-align: right; }
   .history-list { padding: 0 16px; }
   .history-panel { max-height: none; }
   .history-meta { gap: 8px; }
+  .history-item > span:nth-child(2) { align-items: flex-start; flex-direction: column; gap: 2px; }
 }
