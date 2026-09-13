@@ -99,6 +99,10 @@ h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spa
 .danger-button:hover { background: #a93533; }
 .secondary-button { min-width: 120px; height: 43px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: white; font-weight: 800; }
 .history-delete-panel { max-width: 760px; }
+.import-panel { max-width: 920px; margin-bottom: 20px; }
+.import-body { padding: 0 24px 20px; }
+.import-actions { display: flex; gap: 10px; }
+.import-actions .primary-button, .import-actions .secondary-button { height: 43px; padding: 0 16px; }
 .history-panel { max-width: 920px; max-height: calc(100vh - 240px); display: flex; flex-direction: column; }
 .history-meta { display: flex; align-items: center; gap: 18px; }
 .history-download-button { padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--teal-dark); background: white; font-size: 10px; font-weight: 800; white-space: nowrap; }
@@ -285,6 +289,9 @@ dd { margin: 0; font-size: 12px; font-weight: 700; text-align: right; }
   .history-delete-form { margin: 0 16px; padding: 14px; }
   .history-delete-form .input-row { flex-direction: column; }
   .history-delete-form .danger-button { width: 100%; }
+  .import-body { padding: 0 16px 16px; }
+  .import-actions { flex-direction: column; }
+  .import-actions .primary-button, .import-actions .secondary-button { width: 100%; }
   .worker-form { margin: 0 16px; padding: 14px; }
   .worker-form .input-row { flex-direction: column; }
   .worker-form .primary-button { width: 100%; }

@@ -39,7 +39,7 @@ const el = {
   containerForm: $("#containerForm"), containerInput: $("#containerInput"), containerResult: $("#containerResult"),
   productForm: $("#productForm"), barcodeInput: $("#barcodeInput"), productSubmit: $("#productSubmit"), productHint: $("#productHint"), scanResult: $("#scanResult"),
   selectedContainerLabel: $("#selectedContainerLabel"), containerDetails: $("#containerDetails"), table: $("#itemTableBody"), tableWrap: $("#itemTableWrap"), emptySelection: $("#emptySelection"),
-  customerProgress: $("#customerProgressOverview"),
+  customerProgress: $("#customerProgressOverview"), inspectionImportInput: $("#inspectionImportInput"), inspectionImportButton: $("#inspectionImportButton"), sampleDataButton: $("#sampleDataButton"), inspectionImportResult: $("#inspectionImportResult"),
   historyDeleteForm: $("#historyDeleteForm"), historyDeleteInput: $("#historyDeleteInput"), historyDeleteResult: $("#historyDeleteResult"), historyDeleteModal: $("#historyDeleteModal"), historyDeleteModalText: $("#historyDeleteModalText"), historyDeleteCancel: $("#historyDeleteCancel"), historyDeleteConfirm: $("#historyDeleteConfirm"), historyDownloadButton: $("#historyDownloadButton"),
   overallProgressPercent: $("#overallProgressPercent"), overallProgressBar: $("#overallProgressBar"), overallProgressCaption: $("#overallProgressCaption"), overallContainerCount: $("#overallContainerCount"), overallCompletedCount: $("#overallCompletedCount"), overallDifferenceCount: $("#overallDifferenceCount"),
   progressPercent: $("#progressPercent"), progressBar: $("#progressBar"), progressCaption: $("#progressCaption"), completeButton: $("#completeButton"), resolveOverageButton: $("#resolveOverageButton"), completeHelp: $("#completeHelp"),
@@ -48,7 +48,7 @@ const el = {
 
 function cloneSource() { return structuredClone(SOURCE_CONTAINERS); }
 function loadState() {
-  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (saved?.containers?.length === SOURCE_CONTAINERS.length) return { ...saved, workerName: saved.workerName || "", unknownCounts: saved.unknownCounts || {} }; } catch (_) {}
+  try { const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (saved?.containers?.length >= SOURCE_CONTAINERS.length) return { ...saved, workerName: saved.workerName || "", unknownCounts: saved.unknownCounts || {} }; } catch (_) {}
   return { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {}, workerName: "" };
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -210,6 +210,21 @@ function downloadHistoryExcel() {
   const downloadUrl = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = downloadUrl; link.download = `検品履歴_${fileTimestamp}.xlsx`; link.style.display = "none"; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
   showToast(`${state.activity.length}件の履歴をExcel出力しました`);
 }
+function normalizeHeader(value) { return String(value ?? "").replace(/[\s　_＿-]/g, "").toLowerCase(); }
+function getImportValue(row, names) { const normalized = Object.entries(row).reduce((result, [key, value]) => { result[normalizeHeader(key)] = value; return result; }, {}); return names.map(normalizeHeader).map((name) => normalized[name]).find((value) => value !== undefined && value !== ""); }
+function importInspectionRows(rows) {
+  const validRows = rows.map((row) => ({ containerId: String(getImportValue(row, ["オリコンナンバー", "オリコン番号", "オリコン"]) ?? "").trim(), barcode: String(getImportValue(row, ["商品バーコード", "商品コード", "バーコード"]) ?? "").trim(), actual: Number(getImportValue(row, ["実績", "検品数", "実績数"])), expected: Number(getImportValue(row, ["予定数", "予定"])) || 1, name: String(getImportValue(row, ["商品名", "検証商品"]) ?? "検品商品"), customer: String(getImportValue(row, ["得意先"]) ?? "取込データ"), route: String(getImportValue(row, ["配送便", "便"]) ?? ""), pattern: "取込データ" })).filter((row) => /^\d{8}$/.test(row.containerId) && row.barcode && Number.isFinite(row.actual) && row.actual >= 0);
+  if (!validRows.length) throw new Error("取込可能な行がありません。必須列はオリコンナンバー、商品バーコード、実績です。");
+  const grouped = new Map(); validRows.forEach((row) => { const key = `${row.containerId}:${row.barcode}`; grouped.set(key, row); });
+  grouped.forEach((row) => {
+    let container = state.containers.find((candidate) => candidate.id === row.containerId);
+    if (!container) { container = { id: row.containerId, customer: row.customer, route: row.route, pattern: row.pattern, items: [], completed: false }; state.containers.push(container); }
+    let item = container.items.find((candidate) => candidate.barcode === row.barcode);
+    if (!item) { item = { id: `IMP-${row.containerId}-${String(container.items.length + 1).padStart(3, "0")}`, barcode: row.barcode, name: row.name, expected: row.expected, actual: 0 }; container.items.push(item); }
+    item.actual = row.actual; if (row.name && item.name === "検品商品") item.name = row.name; if (row.expected > 0 && item.id.startsWith("IMP-")) item.expected = row.expected; container.completed = false;
+  });
+  const importedContainers = new Set([...grouped.values()].map((row) => row.containerId)); addActivity("ok", "検品データ取込", `${grouped.size}明細・${importedContainers.size}オリコン`); saveState(); render(); return { rows: grouped.size, containers: importedContainers.size };
+}
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
 function showToast(message) { clearTimeout(toastTimer); el.toast.textContent = message; el.toast.classList.add("show"); toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600); }
 
@@ -243,6 +258,12 @@ document.querySelectorAll(".filter-tab").forEach((button) => button.addEventList
 el.completeButton.addEventListener("click", () => { const container = activeContainer(); if (!container) return; container.completed = true; addActivity("ok", `オリコン ${container.id}`, "検品完了"); saveState(); render(); showToast(`オリコン ${container.id} の検品を完了しました`); el.containerInput.focus(); });
 el.resolveOverageButton.addEventListener("click", () => { const container = activeContainer(); if (!container || container.completed || !container.items.some((item) => item.actual > item.expected)) return; if (!window.confirm("過剰になっている商品を予定数まで戻しますか？")) return; const overageItems = container.items.filter((item) => item.actual > item.expected); overageItems.forEach((item) => { item.actual = item.expected; }); addActivity("ok", `オリコン ${container.id}`, `過剰分を解除（${overageItems.length}品番）`); saveState(); render(); showToast(`オリコン ${container.id} の過剰分を解除しました`); });
 el.historyDownloadButton.addEventListener("click", downloadHistoryExcel);
+el.inspectionImportButton.addEventListener("click", () => el.inspectionImportInput.click());
+el.inspectionImportInput.addEventListener("change", async () => {
+  const file = el.inspectionImportInput.files?.[0]; if (!file) return;
+  try { if (!window.XLSX) throw new Error("Excel読込機能を読み込めませんでした。通信状態を確認してください。"); const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const result = importInspectionRows(XLSX.utils.sheet_to_json(sheet, { defval: "" })); showResult(el.inspectionImportResult, "ok", `${file.name}を取り込みました`, `${result.rows}明細 / ${result.containers}オリコン`); showToast("検品データを取り込みました"); } catch (error) { showResult(el.inspectionImportResult, "error", "検品データを取り込めませんでした", error.message); } finally { el.inspectionImportInput.value = ""; }
+});
+el.sampleDataButton.addEventListener("click", () => { if (!window.confirm("現在の検品結果を破棄して、サンプルデータで確認しますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {}, workerName: state.workerName || "" }; activeContainerId = null; lastScannedItemId = null; saveState(); render(); showResult(el.inspectionImportResult, "ok", "サンプルデータに戻しました", "既存のサンプル検証を開始できます"); showToast("サンプルデータに戻しました"); });
 el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {}, workerName: "" }; activeContainerId = null; lastScannedItemId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; el.workerResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
 
 function closeHistoryDeleteModal() { el.historyDeleteModal.hidden = true; }
