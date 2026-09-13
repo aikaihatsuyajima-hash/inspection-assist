@@ -58,8 +58,8 @@ h1 { margin: 0; font-size: clamp(25px, 3vw, 34px); line-height: 1.25; letter-spa
 .main-column, .side-column { display: grid; gap: 20px; }
 .tab-view#workView { height: calc(100vh - 160px); overflow: hidden; }
 .tab-view#workView .workspace-grid { height: 100%; min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 14px; }
-.tab-view#workView .main-column { height: 100%; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto minmax(0, 1fr); gap: 14px; }
-.tab-view#workView .worker-panel { grid-column: 1 / -1; }
+.tab-view#workView .main-column { height: 100%; min-height: 0; grid-template-columns: minmax(250px, .38fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 14px; }
+.tab-view#workView .worker-panel { grid-column: auto; }
 .worker-form { margin: 0 20px; padding: 13px 15px; border-radius: 10px; background: var(--soft); }
 .worker-form label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 750; }
 .worker-form input { min-width: 0; flex: 1; height: 51px; padding: 0 14px; border: 2px solid #bccbc6; border-radius: 8px; outline: none; background: white; font-size: 16px; }
