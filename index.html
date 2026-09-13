@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#103f3a" />
     <title>検品アシスト</title>
-    <link rel="stylesheet" href="styles.css?v=inspection-import-1" />
+    <link rel="stylesheet" href="styles.css?v=inspection-import-2" />
   </head>
   <body>
     <header class="topbar">
@@ -70,13 +70,13 @@
           <div><p class="eyebrow">進捗管理</p><h1>得意先進捗</h1><p class="subtitle">得意先ごとの検品状況とオリコン完了数を確認できます。</p></div>
           <div class="date-chip" id="customersTodayLabel"></div>
         </section>
-        <section class="panel overall-progress-panel">
-          <div class="panel-heading customer-heading"><div><span class="section-label">DAILY OVERVIEW</span><h2>全体の進捗状況</h2></div><span class="data-source">全得意先・全オリコン</span></div>
-          <div class="overall-progress-body"><div class="overall-progress-head"><strong id="overallProgressPercent">0%</strong><span id="overallProgressCaption">0 / 0点</span></div><div class="progress-track"><span id="overallProgressBar"></span></div><div class="overall-progress-stats"><span>対象オリコン <b id="overallContainerCount">0</b>箱</span><span>完了 <b id="overallCompletedCount">0</b>箱</span><span>要確認 <b id="overallDifferenceCount">0</b>件</span></div></div>
-        </section>
         <section class="panel import-panel">
           <div class="panel-heading customer-heading"><div><span class="section-label">DATA IMPORT</span><h2>検品データを取り込む</h2></div><span class="data-source">XLSX形式</span></div>
           <div class="import-body"><input id="inspectionImportInput" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden /><div class="import-actions"><button id="inspectionImportButton" class="primary-button" type="button">XLSXを選択</button><button id="sampleDataButton" class="secondary-button" type="button">サンプルデータで確認</button></div><p class="field-help">列名：オリコンナンバー、商品バーコード、実績（任意：商品名、予定数、得意先、配送便）</p><div id="inspectionImportResult" class="scan-result" aria-live="polite"></div></div>
+        </section>
+        <section class="panel overall-progress-panel">
+          <div class="panel-heading customer-heading"><div><span class="section-label">DAILY OVERVIEW</span><h2>全体の進捗状況</h2></div><span class="data-source">全得意先・全オリコン</span></div>
+          <div class="overall-progress-body"><div class="overall-progress-head"><strong id="overallProgressPercent">0%</strong><span id="overallProgressCaption">0 / 0点</span></div><div class="progress-track"><span id="overallProgressBar"></span></div><div class="overall-progress-stats"><span>対象オリコン <b id="overallContainerCount">0</b>箱</span><span>完了 <b id="overallCompletedCount">0</b>箱</span><span>要確認 <b id="overallDifferenceCount">0</b>件</span></div></div>
         </section>
         <section class="panel customer-panel">
           <div class="panel-heading customer-heading"><div><span class="section-label">CUSTOMER PROGRESS</span><h2>得意先別の進捗状況</h2></div><span class="data-source">検証用PDFデータ・全8オリコン</span></div>
