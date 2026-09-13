@@ -204,6 +204,9 @@ dd { margin: 0; font-size: 12px; font-weight: 700; text-align: right; }
 .complete-button { width: 100%; height: 43px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 8px; color: white; background: var(--teal); font-size: 12px; font-weight: 800; }
 .complete-button svg { width: 18px; }
 .complete-button:disabled { color: #9ba7a3; background: #e7ecea; cursor: not-allowed; }
+.resolve-overage-button { width: 100%; height: 38px; margin-top: 8px; border: 1px solid #e2b26d; border-radius: 8px; color: #8d5414; background: var(--amber-pale); font-size: 11px; font-weight: 800; }
+.resolve-overage-button:hover { background: #ffe8bd; }
+.resolve-overage-button[hidden] { display: none; }
 .progress-panel .complete-help { margin: 8px 0 0; text-align: center; font-size: 10px; }
 .activity-panel { padding: 20px; }
 .activity-heading { display: flex; align-items: center; justify-content: space-between; }

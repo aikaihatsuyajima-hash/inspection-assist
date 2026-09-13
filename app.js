@@ -41,7 +41,7 @@ const el = {
   customerProgress: $("#customerProgressOverview"),
   historyDeleteForm: $("#historyDeleteForm"), historyDeleteInput: $("#historyDeleteInput"), historyDeleteResult: $("#historyDeleteResult"), historyDeleteModal: $("#historyDeleteModal"), historyDeleteModalText: $("#historyDeleteModalText"), historyDeleteCancel: $("#historyDeleteCancel"), historyDeleteConfirm: $("#historyDeleteConfirm"),
   overallProgressPercent: $("#overallProgressPercent"), overallProgressBar: $("#overallProgressBar"), overallProgressCaption: $("#overallProgressCaption"), overallContainerCount: $("#overallContainerCount"), overallCompletedCount: $("#overallCompletedCount"), overallDifferenceCount: $("#overallDifferenceCount"),
-  progressPercent: $("#progressPercent"), progressBar: $("#progressBar"), progressCaption: $("#progressCaption"), completeButton: $("#completeButton"), completeHelp: $("#completeHelp"),
+  progressPercent: $("#progressPercent"), progressBar: $("#progressBar"), progressCaption: $("#progressCaption"), completeButton: $("#completeButton"), resolveOverageButton: $("#resolveOverageButton"), completeHelp: $("#completeHelp"),
   activity: $("#activityList"), resetButton: $("#resetButton"), toast: $("#toast")
 };
 
@@ -111,10 +111,11 @@ function renderActiveContainer() {
     el.containerDetails.className = "no-container";
     el.containerDetails.innerHTML = "<span>オリコン未選択</span><p>ラベルを読み取ると詳細を表示します。</p>";
     el.progressPercent.textContent = "--"; el.progressBar.style.width = "0"; el.progressCaption.textContent = "対象を選択してください";
-    el.completeButton.disabled = true; return;
+    el.completeButton.disabled = true; el.resolveOverageButton.hidden = true; return;
   }
   const m = containerMetrics(container);
   const allMatched = container.items.every((item) => item.actual === item.expected);
+  const hasOverage = container.items.some((item) => item.actual > item.expected);
   el.selectedContainerLabel.textContent = `オリコン ${container.id}`;
   el.productHint.textContent = `対象商品 ${container.items.length}品番・予定 ${m.expected}点。対象外の商品は品違いとして記録されます。`;
   el.barcodeInput.placeholder = "商品バーコードをスキャンまたは入力";
@@ -122,6 +123,7 @@ function renderActiveContainer() {
   el.containerDetails.innerHTML = `<div class="container-number"><span>オリコン</span><strong>${container.id}</strong></div><dl><div><dt>得意先</dt><dd>${container.customer}</dd></div><div><dt>配送便</dt><dd>${container.route}</dd></div><div><dt>検証パターン</dt><dd>${container.pattern}</dd></div><div><dt>対象明細</dt><dd>${container.items.length}品番 / ${m.expected}点</dd></div></dl>`;
   el.progressPercent.textContent = `${m.percent}%`; el.progressBar.style.width = `${m.percent}%`; el.progressCaption.textContent = `${m.credited} / ${m.expected} 点を検品済み`;
   el.completeButton.disabled = !allMatched || container.completed;
+  el.resolveOverageButton.hidden = !hasOverage || container.completed;
   el.completeButton.innerHTML = container.completed ? '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>完了済み' : '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>このオリコンを完了する';
   el.completeHelp.textContent = container.completed ? "検品結果を保存しました" : allMatched ? "予定数との一致を確認しました" : "全商品が適正になると完了できます";
   renderTable(container);
@@ -192,6 +194,7 @@ el.barcodeInput.addEventListener("keydown", (event) => {
 });
 document.querySelectorAll(".filter-tab").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll(".filter-tab").forEach((tab) => tab.classList.remove("active")); button.classList.add("active"); currentFilter = button.dataset.filter; if (activeContainer()) renderTable(activeContainer()); }));
 el.completeButton.addEventListener("click", () => { const container = activeContainer(); if (!container) return; container.completed = true; addActivity("ok", `オリコン ${container.id}`, "検品完了"); saveState(); render(); showToast(`オリコン ${container.id} の検品を完了しました`); el.containerInput.focus(); });
+el.resolveOverageButton.addEventListener("click", () => { const container = activeContainer(); if (!container || container.completed || !container.items.some((item) => item.actual > item.expected)) return; if (!window.confirm("過剰になっている商品を予定数まで戻しますか？")) return; const overageItems = container.items.filter((item) => item.actual > item.expected); overageItems.forEach((item) => { item.actual = item.expected; }); addActivity("ok", `オリコン ${container.id}`, `過剰分を解除（${overageItems.length}品番）`); saveState(); render(); showToast(`オリコン ${container.id} の過剰分を解除しました`); });
 el.resetButton.addEventListener("click", () => { if (!window.confirm("すべての検品データと履歴をリセットしますか？")) return; state = { containers: cloneSource(), activity: [], unknownCount: 0, unknownCounts: {} }; activeContainerId = null; lastScannedItemId = null; saveState(); el.containerResult.innerHTML = ""; el.scanResult.innerHTML = ""; render(); showToast("検品データをリセットしました"); });
 
 function closeHistoryDeleteModal() { el.historyDeleteModal.hidden = true; }
