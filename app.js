@@ -178,7 +178,7 @@ function renderHistory() {
   if (historyCountLabel) historyCountLabel.textContent = `${state.activity.length}件`;
   if (historyWorkerLabel) historyWorkerLabel.textContent = `作業者：${state.workerName || "未登録"}`;
   if (!state.activity.length) { historyList.innerHTML = '<li class="empty-activity">まだ検品履歴がありません</li>'; return; }
-  historyList.innerHTML = state.activity.map((entry) => `<li class="history-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
+  historyList.innerHTML = state.activity.map((entry) => `<li class="history-item"><span class="activity-icon ${entry.type}"><svg viewBox="0 0 24 24">${entry.type === "error" ? '<path d="M12 8v5m0 3v.1M4.5 19h15L12 5 4.5 19Z"/>' : '<path d="m5 12 4 4L19 6"/>'}</svg></span><span><strong>${entry.name}</strong><small>作業者：${entry.workerName || state.workerName || "未登録"}　${entry.detail}</small></span><time class="activity-time">${entry.time}</time></li>`).join("");
 }
 function showResult(target, type, message, detail = "") { target.innerHTML = `<div class="result-message ${type}"><span>${message}</span><small>${detail}</small></div>`; }
 function showToast(message) { clearTimeout(toastTimer); el.toast.textContent = message; el.toast.classList.add("show"); toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600); }
